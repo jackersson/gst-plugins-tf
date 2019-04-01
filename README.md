@@ -1,1 +1,1 @@
-# gst-plugins-tf
+# gst-object-detection
