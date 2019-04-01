@@ -3,6 +3,12 @@
 - Allows to inject [Tensorflow Models Zoo](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md) to Gstreamer Pipeline
 - [Labels](https://github.com/tensorflow/models/tree/master/research/object_detection/data)
 
+### Installation
+
+    python3 -m venv venv
+    source venv/bin/activate
+    pip install -r requirements.txt
+
 ### Usage
 
     export GST_PLUGIN_PATH=$PWD
