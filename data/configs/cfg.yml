@@ -2,5 +2,5 @@ weights: "data/models/ssdlite_mobilenet_v2_coco_2018_05_09/frozen_inference_grap
 threshold: 0.5
 per_process_gpu_memory_fraction: 1.0
 device: "/device:GPU:0"
-labels: /home/taras/coder/projects/production-ai/gst-plugins-tf/data/mscoco_label_map.yml
+labels: data/mscoco_label_map.yml
 input_shape: [300, 300]
