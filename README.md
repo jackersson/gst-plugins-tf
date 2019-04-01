@@ -9,8 +9,9 @@
     
 #### gst_tf_detection
     GST_DEBUG=python:4 gst-launch-1.0 filesrc location=video.mp4 ! decodebin ! videoconvert ! video/x-raw,format=RGB ! gst_tf_detection config=cfg.yml ! videoconvert ! gtksink sync=False
-    
- - [Config Format](https://github.com/jackersson/gst-plugins-tf/blob/master/docs/tf_object_detection_model_config.md) 
+   
+##### Parameters
+ - config: path to filename of [Config Format](https://github.com/jackersson/gst-plugins-tf/blob/master/docs/tf_object_detection_model_config.md) 
     
 #### gst_detection_overlay    
     gst-launch-1.0 filesrc location=video.mp4 ! decodebin ! videoconvert ! video/x-raw,format=RGB ! gst_tf_detection config=cfg.yml ! videoconvert ! gst_detection_overlay ! videoconvert ! gtksink sync=False
