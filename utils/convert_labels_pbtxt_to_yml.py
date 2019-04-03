@@ -1,6 +1,15 @@
 """
 Converts StringIntLabelMap proto text file to IntString yml format
 
+StringIntLabelMap
+   item {
+      name: "/m/05czz6l"
+      id: 5
+      display_name: "airplane"
+    }
+
+-> -> -> -> ->
+
 Label Maps Format
     class_id (int): class_name (str)
 

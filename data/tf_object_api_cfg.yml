@@ -1,0 +1,6 @@
+weights: "data/models/ssdlite_mobilenet_v2_coco_2018_05_09/frozen_inference_graph.pb"
+threshold: 0.6
+per_process_gpu_memory_fraction: 0.0
+device: "/device:CPU:0"
+labels: "data/mscoco_label_map.yml"
+input_shape: [300, 300]

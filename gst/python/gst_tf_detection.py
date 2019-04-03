@@ -2,9 +2,9 @@
 Usage
     export GST_PLUGIN_PATH=$PWD
 
-    # Log detections 
+    # Log detections
     GST_DEBUG=python:4 gst-launch-1.0 filesrc location=video.mp4 ! decodebin ! videoconvert ! video/x-raw,format=RGB ! gst_tf_detection config=cfg.yml ! videoconvert ! gtksink sync=False
-    
+
     # Draw detections
     gst-launch-1.0 filesrc location=video.mp4 ! decodebin ! videoconvert ! video/x-raw,format=RGB ! gst_tf_detection config=cfg.yml ! videoconvert ! gst_detection_overlay ! videoconvert ! gtksink sync=False
 
@@ -17,7 +17,7 @@ import traceback
 import time
 import cv2
 import tensorflow as tf
-from typing import List
+from typing import List, Tuple
 import yaml
 import numpy as np
 
@@ -68,10 +68,13 @@ def load_labels_from_file(filename: str) -> dict:
     labels = {}
     with open(filename, 'r') as f:
         for line in f:
-            items = line.strip().split(":")
-            # print(items)
-            label_id, label_name = items[:2]
-            labels[int(label_id)] = label_name[1:]
+            try:
+                items = line.strip().split(":")
+                # print(items)
+                label_id, label_name = items[:2]
+                labels[int(label_id)] = label_name[1:]
+            except Exception as e:
+                print(e, items)
     return labels
 
 
@@ -109,6 +112,7 @@ class TfObjectDetectionModel(object):
         # Taken from official website
         self.input = graph.get_tensor_by_name("image_tensor:0")
         self.input_shape = input_shape or (300, 300)
+        self.input_shape = tuple(self.input_shape)
 
         # print([n.name for n in graph.as_graph_def().node][:10])
         # print("Shape : ", self.input.shape)
@@ -124,10 +128,8 @@ class TfObjectDetectionModel(object):
 
         self._box_scaler = None
 
-        self._lock = Lock()
-
     def process_single(self, image: np.ndarray) -> List[dict]:
-        return self._process_safe(np.expand_dims(self._preprocess(image), 0), image.shape[:2][::-1])[0]
+        return self._process(np.expand_dims(self._preprocess(image), 0), image.shape[:2][::-1])[0]
 
     def process_batch(self, images: List[np.ndarray]) -> List[dict]:
         images_ = np.stack([self._preprocess(image) for image in images])
@@ -145,7 +147,6 @@ class TfObjectDetectionModel(object):
         objects = [[] for _ in range(num_detections)]
         for i in range(num_detections):
             for class_id, box, score in zip(classes[i], boxes[i], scores[i]):
-
                 if class_id not in self.labels or \
                         score < self.threshold:
                     continue
@@ -167,11 +168,11 @@ class TfObjectDetectionModel(object):
             self.session.close()
 
 
-def tf_object_detection_model_from_file(config: str) -> TfObjectDetectionModel:
+def tf_object_detection_model_from_file(filename: str) -> TfObjectDetectionModel:
     """
-    :param config: filename to model config
+    :param filename: filename to model config
     """
-    return tf_object_detection_model_from_config(load_config(value))
+    return tf_object_detection_model_from_config(load_config(filename))
 
 
 def tf_object_detection_model_from_config(config: dict) -> TfObjectDetectionModel:
@@ -309,7 +310,7 @@ class GstTfDetectionPluginPy(Gst.Element):
         if prop.name == 'model':
             self.model = value
         elif prop.name == "config":
-            self.model = tf_object_detection_model_from_config(value)
+            self.model = tf_object_detection_model_from_file(value)
             self.config = value
         else:
             raise AttributeError('unknown property %s' % prop.name)
