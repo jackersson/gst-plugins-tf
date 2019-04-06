@@ -2,7 +2,7 @@
 #### Config Format: YAML
 
 #### Config Example
- - [file example](https://github.com/jackersson/gst-plugins-tf/blob/master/data/configs/cfg.yml)
+ - [file example](https://github.com/jackersson/gst-plugins-tf/blob/master/data/tf_object_api_cfg.yml)
     
 ##### Path to Model's .pb file [Supported Models](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md)
     weights: "frozen_inference_graph.pb"
