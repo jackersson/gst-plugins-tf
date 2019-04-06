@@ -12,6 +12,10 @@
     
 ##### Input Shape
     input_shape: [w, h]
+    
+##### Log device placement
+
+    log_device_placement: true or false
   
 ##### GPU Options:
     
@@ -23,4 +27,5 @@
     
 #### Labels [Format](https://github.com/jackersson/gst-plugins-tf/blob/master/docs/label_map_format.md)
     labels: mscoco_label_map.yml
+    
     
