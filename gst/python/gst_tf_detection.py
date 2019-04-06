@@ -21,7 +21,7 @@ from typing import List, Tuple
 import yaml
 import numpy as np
 
-from pygst_utils import get_buffer_size, map_gst_buffer, Gst, GObject
+from pygst_utils import gst_buffer_with_pad_to_ndarray, Gst, GObject
 from pygst_utils.gst_objects_info_meta import gst_meta_write
 
 
@@ -107,9 +107,12 @@ class TfObjectDetectionModel(object):
                                per_process_gpu_memory_fraction=per_process_gpu_memory_fraction)
         graph = import_graph(graph_def, device)
 
+        print(f"Model {weights} placed on {device}")
+
         self.session = tf.Session(graph=graph, config=config)
 
         # Taken from official website
+        # https://github.com/tensorflow/models/blob/master/research/object_detection/object_detection_tutorial.ipynb
         self.input = graph.get_tensor_by_name("image_tensor:0")
         self.input_shape = input_shape or (300, 300)
         self.input_shape = tuple(self.input_shape)
@@ -117,7 +120,8 @@ class TfObjectDetectionModel(object):
         # print([n.name for n in graph.as_graph_def().node][:10])
         # print("Shape : ", self.input.shape)
 
-        # Taken from official website
+       # Taken from official website
+        # https://github.com/tensorflow/models/blob/master/research/object_detection/object_detection_tutorial.ipynb
         output_names = ["detection_classes:0",
                         "detection_boxes:0",
                         "detection_scores:0"]
@@ -182,11 +186,12 @@ def tf_object_detection_model_from_config(config: dict) -> TfObjectDetectionMode
     labels = load_labels_from_file(config['labels'])
 
     return TfObjectDetectionModel(weights=config['weights'],
-                                  threshold=config['threshold'],
-                                  device=config['device'],
-                                  per_process_gpu_memory_fraction=config['per_process_gpu_memory_fraction'],
+                                  threshold=config.get('threshold', 0.5),
+                                  device=config.get('device', "/device:CPU:0"),
+                                  per_process_gpu_memory_fraction=config.get('per_process_gpu_memory_fraction', 0.0),
                                   labels=labels,
-                                  input_shape=config['input_shape'])
+                                  log_device_placement=config.get("log_device_placemenent", False),
+                                  input_shape=config.get('input_shape', (300, 300)))
 
 
 class GstTfDetectionPluginPy(Gst.Element):
@@ -259,29 +264,24 @@ class GstTfDetectionPluginPy(Gst.Element):
 
         self.model = None
         self.config = None
+        self._channels = 3  # RGB -> 3 channels
 
-    def chainfunc(self, pad, parent, buffer):
+    def chainfunc(self, pad: Gst.Pad, parent, buffer: Gst.Buffer) -> Gst.FlowReturn:
 
         if self.model is None:
             return self.srcpad.push(buffer)
 
-        # Get Buffer Width/Height
-        success, (width, height) = get_buffer_size(
-            self.srcpad.get_current_caps())
-
-        if not success:
-            # https://lazka.github.io/pgi-docs/Gst-1.0/enums.html#Gst.FlowReturn
-            return Gst.FlowReturn.ERROR
-
         try:
-            # Do Buffer processing
-            with map_gst_buffer(buffer, Gst.MapFlags.READ | Gst.MapFlags.WRITE) as mapped:
-                image = np.ndarray((height, width, 3), buffer=mapped, dtype=np.uint8)
 
-                objects = self.model.process_single(image)
-                Gst.info(str(objects))
+            # Convert Gst.Buffer to np.ndarray
+            image = gst_buffer_with_pad_to_ndarray(buffer, pad, self._channels)
 
-                gst_meta_write(buffer, objects)
+            # model inference
+            objects = self.model.process_single(image)
+            Gst.info(str(objects))
+
+            # write objects to as Gst.Buffer's metadata
+            gst_meta_write(buffer, objects)
         except Exception as e:
             logging.error(e)
             traceback.print_exc()
@@ -289,11 +289,7 @@ class GstTfDetectionPluginPy(Gst.Element):
 
         return self.srcpad.push(buffer)
 
-    def do_get_property(self, prop):
-        """
-        Args:
-            prop: gobject.GParamSpec
-        """
+    def do_get_property(self, prop: GObject.GParamSpec):
         if prop.name == 'model':
             return self.model
         if prop.name == 'config':
@@ -301,12 +297,7 @@ class GstTfDetectionPluginPy(Gst.Element):
         else:
             raise AttributeError('unknown property %s' % prop.name)
 
-    def do_set_property(self, prop, value):
-        """
-        Args:
-            prop: gobject.GParamSpec
-            value: object
-        """
+    def do_set_property(self, prop: GObject.GParamSpec, value):
         if prop.name == 'model':
             self.model = value
         elif prop.name == "config":
@@ -315,21 +306,27 @@ class GstTfDetectionPluginPy(Gst.Element):
         else:
             raise AttributeError('unknown property %s' % prop.name)
 
-    def eventfunc(self, pad, parent, event):
+    def eventfunc(self, pad: Gst.Pad, parent, event: Gst.Event) -> bool:
         """ Forwards event to SRC (DOWNSTREAM)
             https://lazka.github.io/pgi-docs/Gst-1.0/callbacks.html#Gst.PadEventFunction
+
+        :param parent: GstTfDetectionPluginPy
         """
         return self.srcpad.push_event(event)
 
-    def srcqueryfunc(self, pad, object, query):
+    def srcqueryfunc(self, pad: Gst.Pad, parent, query: Gst.Query) -> bool:
         """ Forwards query bacj to SINK (UPSTREAM)
             https://lazka.github.io/pgi-docs/Gst-1.0/callbacks.html#Gst.PadQueryFunction
+
+        :param parent: GstTfDetectionPluginPy
         """
         return self.sinkpad.query(query)
 
-    def srceventfunc(self, pad, parent, event):
+    def srceventfunc(self, pad: Gst.Pad, parent, event: Gst.Event) -> bool:
         """ Forwards event back to SINK (UPSTREAM)
             https://lazka.github.io/pgi-docs/Gst-1.0/callbacks.html#Gst.PadEventFunction
+
+        :param parent: GstTfDetectionPluginPy
         """
         return self.sinkpad.push_event(event)
 
