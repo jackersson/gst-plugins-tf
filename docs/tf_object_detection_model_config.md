@@ -2,7 +2,7 @@
 #### Config Format: YAML
 
 #### Config Example
- - [file example](https://github.com/jackersson/gst-plugins-tf/blob/master/data/configs/cfg.yml)
+ - [file example](https://github.com/jackersson/gst-plugins-tf/blob/master/data/tf_object_api_cfg.yml)
     
 ##### Path to Model's .pb file [Supported Models](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md)
     weights: "frozen_inference_graph.pb"
@@ -12,6 +12,10 @@
     
 ##### Input Shape
     input_shape: [w, h]
+    
+##### Log device placement
+
+    log_device_placement: true or false
   
 ##### GPU Options:
     
@@ -23,4 +27,5 @@
     
 #### Labels [Format](https://github.com/jackersson/gst-plugins-tf/blob/master/docs/label_map_format.md)
     labels: mscoco_label_map.yml
+    
     
