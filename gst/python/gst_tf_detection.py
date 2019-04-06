@@ -120,7 +120,7 @@ class TfObjectDetectionModel(object):
         # print([n.name for n in graph.as_graph_def().node][:10])
         # print("Shape : ", self.input.shape)
 
-       # Taken from official website
+        # Taken from official website
         # https://github.com/tensorflow/models/blob/master/research/object_detection/object_detection_tutorial.ipynb
         output_names = ["detection_classes:0",
                         "detection_boxes:0",
@@ -272,7 +272,6 @@ class GstTfDetectionPluginPy(Gst.Element):
             return self.srcpad.push(buffer)
 
         try:
-
             # Convert Gst.Buffer to np.ndarray
             image = gst_buffer_with_pad_to_ndarray(buffer, pad, self._channels)
 
