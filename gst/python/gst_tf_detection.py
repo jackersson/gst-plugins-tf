@@ -221,12 +221,12 @@ class GstTfDetectionPluginPy(Gst.Element):
     __gproperties__ = {
         "model": (GObject.TYPE_PYOBJECT,
                   "model",
-                  "Contains model that implements process(any_data)",
+                  "Contains model TfObjectDetectionModel",
                   GObject.ParamFlags.READWRITE),
 
         "config": (str,
-                   "str property",
-                   "A property that contains str",
+                   "Path to config file",
+                   "Contains path to config *.yml supported by TfObjectDetectionModel",
                    None,  # default
                    GObject.ParamFlags.READWRITE
                    ),
@@ -267,7 +267,9 @@ class GstTfDetectionPluginPy(Gst.Element):
         self._channels = 3  # RGB -> 3 channels
 
     def chainfunc(self, pad: Gst.Pad, parent, buffer: Gst.Buffer) -> Gst.FlowReturn:
-
+        """
+        :param parent: GstDetectionOverlay
+        """
         if self.model is None:
             return self.srcpad.push(buffer)
 
@@ -280,6 +282,7 @@ class GstTfDetectionPluginPy(Gst.Element):
             Gst.info(str(objects))
 
             # write objects to as Gst.Buffer's metadata
+            # Explained: http://lifestyletransfer.com/how-to-add-metadata-to-gstreamer-buffer-in-python/
             gst_meta_write(buffer, objects)
         except Exception as e:
             logging.error(e)

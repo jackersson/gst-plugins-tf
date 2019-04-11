@@ -133,8 +133,8 @@ class GstDetectionOverlay(Gst.Element):
     # Example: https://python-gtk-3-tutorial.readthedocs.io/en/latest/objects.html#properties
     __gproperties__ = {
         "model": (GObject.TYPE_PYOBJECT,
-                  "model",
-                  "Contains model that implements process(any_data)",
+                  "ObjectsOverlayCairo",
+                  "Contains model that implements ObjectsOverlayCairo",
                   GObject.ParamFlags.READWRITE),
     }
 
@@ -170,7 +170,10 @@ class GstDetectionOverlay(Gst.Element):
 
         self.model = ObjectsOverlayCairo()
 
-    def chainfunc(self, pad, parent, buffer):
+    def chainfunc(self, pad: Gst.Pad, parent, buffer: Gst.Buffer) -> Gst.FlowReturn:
+        """
+        :param parent: GstDetectionOverlay
+        """
         # Get Buffer Width/Height
         success, (width, height) = get_buffer_size(
             self.srcpad.get_current_caps())
@@ -194,22 +197,13 @@ class GstDetectionOverlay(Gst.Element):
 
         return self.srcpad.push(buffer)
 
-    def do_get_property(self, prop):
-        """
-        Args:
-            prop: gobject.GParamSpec
-        """
+    def do_get_property(self, prop: GObject.GParamSpec):
         if prop.name == 'model':
             return self.model
         else:
             raise AttributeError('unknown property %s' % prop.name)
 
-    def do_set_property(self, prop, value):
-        """
-        Args:
-            prop: gobject.GParamSpec
-            value: object
-        """
+    def do_set_property(self, prop: GObject.GParamSpec, value):
         if prop.name == 'model':
             self.model = value
         else:
