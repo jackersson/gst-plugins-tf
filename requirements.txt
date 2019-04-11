@@ -1,4 +1,6 @@
-opencv_python==3.4.3.18
+opencv_python
 numpy==1.14.5
 protobuf==3.6.1
+pycairo
+pyyaml
 git+https://github.com/jackersson/pygst-utils.git
