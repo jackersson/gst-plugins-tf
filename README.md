@@ -11,7 +11,7 @@
 
 ## Usage
 
-    export GST_PLUGIN_PATH=$PWD
+    export GST_PLUGIN_PATH=$PWD/gst
 
 ### Plugins
 #### gst_tf_detection
