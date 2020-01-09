@@ -37,7 +37,6 @@ pip install tensorflow-gpu==1.15
 export GST_PLUGIN_PATH=$GST_PLUGIN_PATH:$PWD/venv/lib/gstreamer-1.0/:$PWD/gst/
 ```
 
-
 ### Plugins
 #### gst_tf_detection
     gst-launch-1.0 filesrc location=video.mp4 ! decodebin ! videoconvert ! \
