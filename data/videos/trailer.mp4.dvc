@@ -1,0 +1,7 @@
+md5: dbd7f8e3afd8b6fb4e116fb69f994da8
+outs:
+- md5: 8cc17349531eb6af92fb9170c6bf3846
+  path: trailer.mp4
+  cache: true
+  metric: false
+  persist: false

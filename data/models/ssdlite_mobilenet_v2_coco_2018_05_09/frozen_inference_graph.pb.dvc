@@ -1,0 +1,7 @@
+md5: b59f5a350ae87e1ccbc10c5b40a82123
+outs:
+- md5: 87a63b4b0b7cb492bff0bead10af7fae
+  path: frozen_inference_graph.pb
+  cache: true
+  metric: false
+  persist: false

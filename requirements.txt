@@ -1,6 +1,7 @@
-opencv_python
-numpy==1.14.5
-protobuf==3.6.1
-pycairo
-pyyaml
-git+https://github.com/jackersson/pygst-utils.git
+numpy==1.18.1
+opencv-python==4.1.2.30
+pytest==5.3.2
+PyYAML==5.3
+trafaret==2.0.2
+dvc[gs]==0.80.0
+gstreamer-python @ git+https://github.com/jackersson/gstreamer-python.git#egg=gstreamer-python

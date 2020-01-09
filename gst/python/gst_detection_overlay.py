@@ -1,34 +1,40 @@
 """
 Usage
-    export GST_PLUGIN_PATH=$PWD
+    export GST_PLUGIN_PATH=$GST_PLUGIN_PATH:$PWD/venv/lib/gstreamer-1.0/:$PWD/gst/
+    export GST_DEBUG=python:4
 
-    gst-launch-1.0 videotestsrc ! gstplugin_py ! videoconvert ! autovideosink
-
+    gst-launch-1.0 filesrc location=video.mp4 ! decodebin ! videoconvert ! \
+        gst_tf_detection config=data/tf_object_api_cfg.yml ! videoconvert ! \
+        gst_detection_overlay ! videoconvert ! autovideosink
 """
 
 import os
 import logging
-import timeit
-import traceback
-import time
 import random
-import cv2
-import tensorflow as tf
-from typing import List, Tuple
-import yaml
+import typing as typ
 import cairo
-import numpy as np
 
-from pygst_utils import get_buffer_size, map_gst_buffer, Gst, GObject
-from pygst_utils.gst_objects_info_meta import gst_meta_get
+from gstreamer import Gst, GObject, GstBase
+from gstreamer import map_gst_buffer
+import gstreamer.utils as utils
+from gstreamer.gst_objects_info_meta import gst_meta_get
+
+
+def _get_log_level() -> int:
+    return int(os.getenv("GST_PYTHON_LOG_LEVEL", logging.DEBUG / 10)) * 10
+
+
+log = logging.getLogger('gst_python')
+log.setLevel(_get_log_level())
 
 
 class ColorPicker:
+    """Generates random colors"""
 
     def __init__(self):
         self._color_by_id = {}
 
-    def get(self, idx):
+    def get(self, idx: typ.Any):
         if idx not in self._color_by_id:
             self._color_by_id[idx] = self.generate_color()
         return self._color_by_id[idx]
@@ -38,13 +44,14 @@ class ColorPicker:
 
 
 class ObjectsOverlayCairo:
+    """Draws objects on video frame"""
 
     def __init__(self, line_thickness_scaler: float = 0.0025,
                  font_size_scaler: float = 0.01,
                  font_family: str = 'Sans',
                  font_slant: cairo.FontSlant = cairo.FONT_SLANT_NORMAL,
                  font_weight: cairo.FontWeight = cairo.FONT_WEIGHT_BOLD,
-                 text_color: Tuple[int, int, int]=[255, 255, 255],
+                 text_color: typ.Tuple[int, int, int] = [255, 255, 255],
                  colors: ColorPicker = None):
 
         self.line_thickness_scaler = line_thickness_scaler
@@ -56,7 +63,12 @@ class ObjectsOverlayCairo:
         self.text_color = [float(x) / max(text_color) for x in text_color]
         self.colors = colors or ColorPicker()
 
-    def draw(self, buffer: Gst.Buffer, width: int, height: int, objects: List[dict]) -> bool:
+    @property
+    def log(self) -> logging.Logger:
+        return log
+
+    def draw(self, buffer: Gst.Buffer, width: int, height: int, objects: typ.List[dict]) -> bool:
+        """Draws objects on video buffer"""
         try:
             stride = cairo.ImageSurface.format_stride_for_width(cairo.FORMAT_RGB24, width)
             surface = cairo.ImageSurface.create_for_data(buffer,
@@ -64,9 +76,8 @@ class ObjectsOverlayCairo:
                                                          width, height,
                                                          stride)
             context = cairo.Context(surface)
-        except Exception as e:
-            logging.error(e)
-            logging.error("Failed to create cairo surface for buffer")
+        except Exception as err:
+            logging.error("Failed to create cairo surface for buffer %s. %s", err, self)
             return False
 
         try:
@@ -79,13 +90,16 @@ class ObjectsOverlayCairo:
 
             for obj in objects:
 
+                # set color by class_name
                 r, g, b = self.colors.get(obj["class_name"])
                 context.set_source_rgb(r, g, b)
 
+                # draw bounding box
                 l, t, w, h = obj['bounding_box']
                 context.rectangle(l, t, w, h)
                 context.stroke()
 
+                # tableu for additional info
                 text = "{}".format(obj["class_name"])
                 _, _, text_w, text_h, _, _ = context.text_extents(text)
 
@@ -93,21 +107,20 @@ class ObjectsOverlayCairo:
                 context.rectangle(l, t - tableu_height, w, tableu_height)
                 context.fill()
 
+                # draw class name
                 r, g, b = self.text_color
                 context.set_source_rgb(r, g, b)
                 context.move_to(l, t)
                 context.show_text(text)
 
         except Exception as e:
-            logging.error(e)
-            logging.error("Failed cairo render")
-            traceback.print_exc()
+            logging.error("Failed cairo render %s. %s", err, self)
             return False
 
         return True
 
 
-class GstDetectionOverlay(Gst.Element):
+class GstDetectionOverlay(GstBase.BaseTransform):
 
     # Metadata Explanation:
     # http://lifestyletransfer.com/how-to-create-simple-blurfilter-with-gstreamer-in-python-using-opencv/
@@ -139,63 +152,31 @@ class GstDetectionOverlay(Gst.Element):
     }
 
     def __init__(self):
-        super(GstDetectionOverlay, self).__init__()
-
-        # Explained:
-        # http://lifestyletransfer.com/how-to-write-gstreamer-plugin-with-python/
-
-        # Explanation how to init Pads
-        # https://gstreamer.freedesktop.org/documentation/plugin-development/basics/pads.html
-        self.sinkpad = Gst.Pad.new_from_template(self._sinktemplate, 'sink')
-
-        # Set chain function
-        # https://gstreamer.freedesktop.org/documentation/plugin-development/basics/chainfn.html
-        self.sinkpad.set_chain_function_full(self.chainfunc, None)
-
-        # Set event function
-        # https://gstreamer.freedesktop.org/documentation/plugin-development/basics/eventfn.html
-        self.sinkpad.set_event_function_full(self.eventfunc, None)
-        self.add_pad(self.sinkpad)
-
-        self.srcpad = Gst.Pad.new_from_template(self._srctemplate, 'src')
-
-        # Set event function
-        # https://gstreamer.freedesktop.org/documentation/plugin-development/basics/eventfn.html
-        self.srcpad.set_event_function_full(self.srceventfunc, None)
-
-        # Set query function
-        # https://gstreamer.freedesktop.org/documentation/plugin-development/basics/queryfn.html
-        self.srcpad.set_query_function_full(self.srcqueryfunc, None)
-        self.add_pad(self.srcpad)
+        super().__init__()
 
         self.model = ObjectsOverlayCairo()
 
-    def chainfunc(self, pad: Gst.Pad, parent, buffer: Gst.Buffer) -> Gst.FlowReturn:
-        """
-        :param parent: GstDetectionOverlay
-        """
-        # Get Buffer Width/Height
-        success, (width, height) = get_buffer_size(
-            self.srcpad.get_current_caps())
+    def do_transform_ip(self, buffer: Gst.Buffer) -> Gst.FlowReturn:
 
-        if not success:
-            # https://lazka.github.io/pgi-docs/Gst-1.0/enums.html#Gst.FlowReturn
-            return Gst.FlowReturn.ERROR
+        if self.model is None:
+            Gst.warning(f"No model speficied for {self}. Plugin working in passthrough mode")
+            return Gst.FlowReturn.OK
 
         try:
             objects = gst_meta_get(buffer)
-            if objects:
-                # Do Buffer processing
-                with map_gst_buffer(buffer, Gst.MapFlags.READ | Gst.MapFlags.WRITE) as mapped:
-                    if self.model:
-                        self.model.draw(mapped, width, height, objects)
 
-        except Exception as e:
-            logging.error(e)
-            traceback.print_exc()
+            if objects:
+                width, height = utils.get_buffer_size_from_gst_caps(self.sinkpad.get_current_caps())
+
+                # Do drawing
+                with map_gst_buffer(buffer, Gst.MapFlags.READ | Gst.MapFlags.WRITE) as mapped:
+                    self.model.draw(mapped, width, height, objects)
+
+        except Exception as err:
+            Gst.error(f"Error {self}: {err}")
             return Gst.FlowReturn.ERROR
 
-        return self.srcpad.push(buffer)
+        return Gst.FlowReturn.OK
 
     def do_get_property(self, prop: GObject.GParamSpec):
         if prop.name == 'model':
@@ -209,28 +190,9 @@ class GstDetectionOverlay(Gst.Element):
         else:
             raise AttributeError('unknown property %s' % prop.name)
 
-    def eventfunc(self, pad, parent, event):
-        """ Forwards event to SRC (DOWNSTREAM)
-            https://lazka.github.io/pgi-docs/Gst-1.0/callbacks.html#Gst.PadEventFunction
-        """
-        return self.srcpad.push_event(event)
-
-    def srcqueryfunc(self, pad, object, query):
-        """ Forwards query bacj to SINK (UPSTREAM)
-            https://lazka.github.io/pgi-docs/Gst-1.0/callbacks.html#Gst.PadQueryFunction
-        """
-        return self.sinkpad.query(query)
-
-    def srceventfunc(self, pad, parent, event):
-        """ Forwards event back to SINK (UPSTREAM)
-            https://lazka.github.io/pgi-docs/Gst-1.0/callbacks.html#Gst.PadEventFunction
-        """
-        return self.sinkpad.push_event(event)
-
 
 # Required for registering plugin dynamically
-# Explained:
-# http://lifestyletransfer.com/how-to-write-gstreamer-plugin-with-python/
+# Explained: http://lifestyletransfer.com/how-to-write-gstreamer-plugin-with-python/
 GObject.type_register(GstDetectionOverlay)
 __gstelementfactory__ = (GstDetectionOverlay.GST_PLUGIN_NAME,
                          Gst.Rank.NONE, GstDetectionOverlay)
