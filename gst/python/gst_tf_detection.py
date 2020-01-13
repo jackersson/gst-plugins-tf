@@ -339,8 +339,7 @@ class GstTfDetectionPluginPy(GstBase.BaseTransform):
             objects = self.model.process_single(image)
 
             Gst.debug(f"Frame id ({buffer.pts // buffer.duration}). Detected {str(objects)}")
-            # print(1, buffer.pts // buffer.duration, [obj for obj in objects if obj['class_name'] == 'height'])
-
+           
             # write objects to as Gst.Buffer's metadata
             # Explained: http://lifestyletransfer.com/how-to-add-metadata-to-gstreamer-buffer-in-python/
             gst_meta_write(buffer, objects)
