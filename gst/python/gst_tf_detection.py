@@ -323,8 +323,7 @@ class GstTfDetectionPluginPy(GstBase.BaseTransform):
         super().__init__()
 
         self.model = None
-        self.config = None
-        self._channels = 3  # RGB -> 3 channels
+        self.config = None        
 
     def do_transform_ip(self, buffer: Gst.Buffer) -> Gst.FlowReturn:
 
