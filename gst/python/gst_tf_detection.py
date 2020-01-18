@@ -324,7 +324,6 @@ class GstTfDetectionPluginPy(GstBase.BaseTransform):
 
         self.model = None
         self.config = None
-        self._channels = 3  # RGB -> 3 channels
 
     def do_transform_ip(self, buffer: Gst.Buffer) -> Gst.FlowReturn:
 
@@ -340,7 +339,6 @@ class GstTfDetectionPluginPy(GstBase.BaseTransform):
             objects = self.model.process_single(image)
 
             Gst.debug(f"Frame id ({buffer.pts // buffer.duration}). Detected {str(objects)}")
-            # print(1, buffer.pts // buffer.duration, [obj for obj in objects if obj['class_name'] == 'height'])
 
             # write objects to as Gst.Buffer's metadata
             # Explained: http://lifestyletransfer.com/how-to-add-metadata-to-gstreamer-buffer-in-python/
