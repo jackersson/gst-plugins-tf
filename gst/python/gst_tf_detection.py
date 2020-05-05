@@ -75,7 +75,7 @@ def create_config(device: str = 'CPU', *,
         else:
             config.gpu_options.allow_growth = True
     else:
-        config.device_count = {'GPU': 0}
+        config.device_count['GPU'] = 0
 
     return config
 
