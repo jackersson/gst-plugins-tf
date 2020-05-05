@@ -54,7 +54,7 @@ def _parse_device(device: str) -> str:
     if device == 'GPU|CPU':
         result = 'GPU' if _is_gpu_available() else 'CPU'
 
-    if 'GPU' in device and not _is_gpu_available():
+    if 'GPU' in result and not _is_gpu_available():
         raise ValueError('Specified "{}" device but GPU not available'.format(device))
 
     return result if ':' in result else f'{result}:0'
