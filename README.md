@@ -56,7 +56,9 @@ export GST_PLUGIN_PATH=$GST_PLUGIN_PATH:$PWD/venv/lib/gstreamer-1.0/:$PWD/gst/
  - [convert_labels_pbtxt_to_yml](https://github.com/jackersson/gst-plugins-tf/blob/master/utils/convert_labels_pbtxt_to_yml.py)
 
        python convert_labels_pbtxt_to_yml.py -f mscoco_label_map.pbtxt
-
+       
+## License
+MIT License
 
 ### Additional
 #### Enable/Disable TF logs
