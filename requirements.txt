@@ -1,5 +1,5 @@
 numpy==1.18.1
-opencv-python==4.1.2.30
+opencv-python==4.2.0.32
 pytest==5.3.2
 PyYAML==5.3
 trafaret==2.0.2
